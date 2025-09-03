@@ -2,8 +2,6 @@ import streamlit as st
 import google.generativeai as genai
 import time
 import uuid
-import json
-import os
 from datetime import datetime
 
 # Page configuration
@@ -199,37 +197,6 @@ If asked questions completely unrelated to UTAR or education or activities aroun
 UTAR-related topics by mentioning you're specifically designed to provide information about UTAR.
 """
 
-# File path for storing chat sessions
-CHAT_STORAGE_PATH = "./.chat_sessions.json"
-
-# Function to load chat sessions from file
-def load_chat_sessions():
-    if os.path.exists(CHAT_STORAGE_PATH):
-        try:
-            with open(CHAT_STORAGE_PATH, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            st.error(f"Error loading chat sessions: {e}")
-            return {}
-    return {}
-
-# Function to save chat sessions to file
-def save_chat_sessions():
-    try:
-        # Create a copy of chat sessions without the non-serializable elements
-        serializable_sessions = {}
-        for session_id, session_data in st.session_state.chat_sessions.items():
-            serializable_sessions[session_id] = {
-                'title': session_data['title'],
-                'messages': session_data['messages'],
-                'created_at': session_data.get('created_at', datetime.now().isoformat())
-            }
-        
-        with open(CHAT_STORAGE_PATH, 'w') as f:
-            json.dump(serializable_sessions, f)
-    except Exception as e:
-        st.error(f"Error saving chat sessions: {e}")
-
 # Function to generate a descriptive title from conversation content
 def generate_chat_title(user_message, ai_response):
     # First try to extract a title from the user message
@@ -245,27 +212,20 @@ def generate_chat_title(user_message, ai_response):
     return title
 
 def initialize_session_state():
-    # Load existing chat sessions
+    # Initialize chat sessions map - ONLY FOR THIS SESSION
     if 'chat_sessions' not in st.session_state:
-        st.session_state.chat_sessions = load_chat_sessions()
+        st.session_state.chat_sessions = {}
     
     # Initialize current session
     if 'current_session_id' not in st.session_state:
-        # Use the most recent session if available, otherwise create new
-        if st.session_state.chat_sessions:
-            # Find the most recent session by created_at timestamp
-            most_recent = max(st.session_state.chat_sessions.items(), 
-                            key=lambda x: x[1].get('created_at', ''))
-            st.session_state.current_session_id = most_recent[0]
-        else:
-            # Create a new session if none exist
-            new_session_id = str(uuid.uuid4())
-            st.session_state.current_session_id = new_session_id
-            st.session_state.chat_sessions[new_session_id] = {
-                'title': "New Conversation",
-                'messages': [],
-                'created_at': datetime.now().isoformat()
-            }
+        # Create a new session if none exist
+        new_session_id = str(uuid.uuid4())
+        st.session_state.current_session_id = new_session_id
+        st.session_state.chat_sessions[new_session_id] = {
+            'title': "New Conversation",
+            'messages': [],
+            'created_at': datetime.now().isoformat()
+        }
     
     # Initialize Gemini model
     if 'gemini_model' not in st.session_state:
@@ -309,8 +269,6 @@ def create_new_chat():
     st.session_state.gemini_chat[new_session_id] = st.session_state.gemini_model.start_chat(history=[])
     st.session_state.gemini_chat[new_session_id].send_message(f"For this conversation, please note: {UNIVERSITY_CONTEXT}")
     
-    # Save the updated chat sessions
-    save_chat_sessions()
     st.rerun()
 
 # Function to switch chat sessions
@@ -331,8 +289,6 @@ def generate_response(prompt):
             # Generate a context-based title
             title = generate_chat_title(prompt, response.text)
             st.session_state.chat_sessions[session_id]['title'] = title
-            # Save the updated title
-            save_chat_sessions()
             
         return response.text
     except Exception as e:
@@ -344,9 +300,6 @@ def handle_user_input(user_query):
     
     # Add user message to chat
     st.session_state.chat_sessions[session_id]['messages'].append({"role": "user", "content": user_query})
-    
-    # Save after adding user message
-    save_chat_sessions()
     
     # Generate assistant response
     with st.chat_message("assistant", avatar="🤖"):
@@ -364,14 +317,10 @@ def handle_user_input(user_query):
             # Add assistant response to chat history
             st.session_state.chat_sessions[session_id]['messages'].append({"role": "assistant", "content": response})
             
-            # Save after adding assistant message
-            save_chat_sessions()
-            
         except Exception as e:
             error_message = f"Sorry, I encountered an error: {str(e)}"
             message_placeholder.write(error_message)
             st.session_state.chat_sessions[session_id]['messages'].append({"role": "assistant", "content": error_message})
-            save_chat_sessions()
 
 # Initialize session state
 initialize_session_state()
@@ -385,7 +334,8 @@ with st.sidebar:
         create_new_chat()
     
     # Display all chat sessions
-    st.subheader("Recent Chats")
+    st.subheader("Current Session Chats")
+    st.caption("Chats are only stored for this session")
     
     # Sort sessions by most recent first
     sorted_sessions = sorted(
@@ -404,8 +354,9 @@ with st.sidebar:
     
     # About section at the bottom of the sidebar
     st.markdown("---")
-    st.markdown("**UniGuide** - Your AI university assistant")
-    st.markdown("v1.0 - Powered by Gemini Pro")
+    st.markdown("**UTARian Guide** - Your AI university assistant")
+    st.markdown("v1.0 - Powered by Gemini 2.5 Flash")
+    st.info("Sessions are temporary and will be lost when you close your browser.")
 
 # Main chat area
 st.title("🎓 University Life Assistant")
