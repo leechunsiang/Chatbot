@@ -12,7 +12,7 @@ st.set_page_config(
 # Configure the Gemini API with the key from secrets.toml
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# Custom CSS for better styling
+# Custom CSS for better styling (unchanged)
 st.markdown("""
 <style>
     .chat-message {
@@ -142,11 +142,12 @@ def initialize_session_state():
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'gemini_model' not in st.session_state:
-        st.session_state.gemini_model = genai.GenerativeModel('gemini-pro')
+        st.session_state.gemini_model = genai.GenerativeModel('gemini-2.5-flash-lite')
     if 'gemini_chat' not in st.session_state:
-        st.session_state.gemini_chat = st.session_state.gemini_model.start_chat(
-            history=[{"role": "system", "content": UNIVERSITY_CONTEXT}]
-        )
+        # Initialize the chat WITHOUT system message
+        st.session_state.gemini_chat = st.session_state.gemini_model.start_chat(history=[])
+        # Send an initial message to establish context instead
+        st.session_state.gemini_chat.send_message(f"For this conversation, please note: {UNIVERSITY_CONTEXT}")
 
 initialize_session_state()
 

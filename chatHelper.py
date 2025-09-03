@@ -8,7 +8,7 @@ def initialize_gemini():
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         
         # Create a generative model instance
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         return model
     except Exception as e:
         st.error(f"Error initializing Gemini: {str(e)}")
